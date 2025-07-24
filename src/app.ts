@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import { Telegraf, Context } from 'telegraf';
 import chatRoutes from './routes/chat';
 require('dotenv').config();
 
@@ -58,5 +59,22 @@ io.on('connection', (socket) => {
     console.log('User disconnected:', socket.id);
   });
 });
+
+
+const bot = new Telegraf<Context>(process.env.BOT_TOKEN || 'bruh...'); // Замените на токен от BotFather
+
+// Обработчик команды /start
+bot.start((ctx) => ctx.reply('Привет! Я простой бот. Напиши мне что-нибудь!'));
+
+// Эхо-обработчик для всех текстовых сообщений
+bot.on('text', (ctx) => ctx.reply(`Ты написал: ${ctx.message.text}`));
+
+// Запуск бота
+bot.launch();
+
+console.log('Бот запущен...');
+
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
 export { app, server, io };
