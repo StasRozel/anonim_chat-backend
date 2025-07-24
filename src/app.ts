@@ -3,12 +3,13 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import chatRoutes from './routes/chat';
+require('dotenv').config();
 
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: process.env.FRONTEND_URL,
     methods: ["GET", "POST"]
   }
 });
