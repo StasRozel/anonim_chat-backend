@@ -2,24 +2,35 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { Telegraf, Context } from 'telegraf';
 import chatRoutes from './routes/chat';
+import { bot } from './services/tgbot.service';
+import messageRepository from './repositories/message.repository';
+import { dbConnection } from './config/db.config';
 require('dotenv').config();
 
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL,
-    methods: ["GET", "POST"]
+    origin: process.env.FRONTEND_URL  || 'http://localhost:3000', // Укажите URL вашего фронтенда
+    methods: ["GET", "POST", "PUT", "DELETE"],
   }
 });
 
-app.use(cors());
-app.use(express.json());
-app.use('/api/chat', chatRoutes);
+async function startDB() {
+  try {
+    // Подключаемся к MongoDB
+    await dbConnection.connect();
+    console.log('Database connected successfully');
 
-// Socket.IO для реального времени
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+startDB();
+
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
@@ -49,9 +60,9 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('send-message', (data) => {
+  socket.on('send-message', async (data) => {
     console.log('Message received:', data);
-    // Отправляем сообщение всем пользователям в чате, кроме отправителя
+    await messageRepository.createMessage(data.message);
     socket.to(data.chatId).emit('new-message', data.message);
   });
 
@@ -60,21 +71,11 @@ io.on('connection', (socket) => {
   });
 });
 
-
-const bot = new Telegraf<Context>(process.env.BOT_TOKEN || 'bruh...'); // Замените на токен от BotFather
-
-// Обработчик команды /start
-bot.start((ctx) => ctx.reply('Привет! Я простой бот. Напиши мне что-нибудь!'));
-
-// Эхо-обработчик для всех текстовых сообщений
-bot.on('text', (ctx) => ctx.reply(`Ты написал: ${ctx.message.text}`));
+app.use(cors());
+app.use(express.json());
+app.use('/api/chat', chatRoutes);
 
 // Запуск бота
 bot.launch();
-
-console.log('Бот запущен...');
-
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
 export { app, server, io };

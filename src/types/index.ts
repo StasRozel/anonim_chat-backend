@@ -7,7 +7,7 @@ export interface TelegramUser {
 }
 
 export interface Message {
-  id: string;
+  id : string;
   text: string;
   user: TelegramUser;
   timestamp: Date;
