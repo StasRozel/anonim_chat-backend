@@ -25,7 +25,7 @@ class DatabaseConnection {
 
     try {
       await this.client.connect();
-      this.db = this.client.db('anonim_chat');
+      this.db = this.client.db('anonim_chat_centerd17');
       
       // Проверяем подключение
       await this.db.admin().ping();

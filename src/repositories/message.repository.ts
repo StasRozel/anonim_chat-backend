@@ -1,10 +1,14 @@
-import { Message } from '../types';
+import { Message } from '../types/types';
 import { dbConnection } from '../config/db.config'; // Импортируем клиент MongoDB
 import { Collection } from 'mongodb';
 
 class MessageRepository {
   private getCollection(): Collection<Message> {
     return dbConnection.getDb().collection<Message>('messages');
+  }
+
+  private async getMessageById(id: string): Promise<Message | null> {
+    return dbConnection.getDb().collection<Message>('messages').findOne({ id });
   }
 
   async createMessage(message: Omit<Message, '_id'>): Promise<Message> {
@@ -27,22 +31,29 @@ class MessageRepository {
         .limit(limit)
         .toArray();
       
-      return messages.reverse(); // Возвращаем в хронологическом порядке
+      return messages.reverse();
     } catch (error) {
       console.error('Error fetching messages:', error);
       throw error;
     }
   }
 
-  async getMessageById(id: string): Promise<Message | null> {
+  async pinMessage(id: string): Promise<number> {
     try {
-      const collection = this.getCollection();
-      return await collection.findOne({ id });
+      const collection = this.getCollection()
+      const messagePinned = await collection.updateOne({id}, { $set: { isPinned: true } });
+      console.log(`Message with id ${id} pinned:`, messagePinned);
+      if (messagePinned.matchedCount === 0) {
+        console.warn(`Message with id ${id} not found for pinning.`);
+        return 0;
+      }
+      return messagePinned.modifiedCount;
     } catch (error) {
-      console.error('Error fetching message by id:', error);
+      console.error('Error fetching messages:', error);
       throw error;
     }
   }
+
 }
 
 export default new MessageRepository();

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Message } from "../types";
+import { Message } from "../types/types";
 import messageRepository from "../repositories/message.repository";
 
 class ChatController {
@@ -22,6 +22,8 @@ class ChatController {
       user,
       timestamp: new Date(),
       type: "text",
+      isPinned: false,
+      replyTo: null
     };
     console.log("newMessage:", newMessage);
     const createdMessage = await messageRepository.createMessage(newMessage);

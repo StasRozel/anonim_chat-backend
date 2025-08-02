@@ -7,11 +7,25 @@ export interface TelegramUser {
 }
 
 export interface Message {
-  id : string;
+  id: string;
   text: string;
   user: TelegramUser;
   timestamp: Date;
   type: 'text' | 'system';
+  chatId?: string;
+  edited?: boolean;
+  editedAt?: Date;
+  isPinned: boolean;
+  replyTo: string | null;
+}
+
+export interface CreateMessageDto {
+  text: string;
+  user: TelegramUser;
+  type: 'text' | 'system';
+  chatId: string;
+  replyToMessageId?: string | null;
+  isPinned?: boolean;
 }
 
 export interface WebAppInitData {

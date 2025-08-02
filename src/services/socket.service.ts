@@ -1,3 +1,4 @@
+import { Message } from './../types/types';
 import messageRepository from "../repositories/message.repository";
 import { Server } from "socket.io";
 
@@ -33,25 +34,34 @@ export const setupSocketHandlers = (io: Server) => {
   socket.on('send-message', async (data) => {
     try {
         console.log('Message received:', data);
-        
-        // Генерируем уникальный ID и timestamp на сервере
+
         const messageWithServerData = {
           ...data.message,
           id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           timestamp: new Date().toISOString()
         };
         
-        // Сохраняем в базу данных
         await messageRepository.createMessage(messageWithServerData);
-        
-        // ВАЖНО: Отправляем всем участникам чата (включая отправителя)
-        // Изменяем socket.to() на io.to() чтобы включить отправителя
+
         io.to(data.chatId).emit('new-message', messageWithServerData);
         
         console.log(`Message sent to chat ${data.chatId}:`, messageWithServerData.text);
       } catch (error) {
         console.error('Error in send-message handler:', error);
         socket.emit('error', { message: 'Failed to send message' });
+      }
+  });
+
+    socket.on('pin-message', async (data) => {
+    try {
+        console.log('Message pinned:', data);
+        
+        const result = await messageRepository.pinMessage(data.message.id);
+
+        io.to(data.chatId).emit('pin-message', result);
+      } catch (error) {
+        console.error('Error in pin-message handler:', error);
+        socket.emit('error', { message: 'Failed to pin message' });
       }
   });
 
