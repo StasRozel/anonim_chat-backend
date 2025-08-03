@@ -54,6 +54,22 @@ class MessageRepository {
     }
   }
 
+  async unPinMessage(id: string): Promise<number> {
+    try {
+      const collection = this.getCollection()
+      const messagePinned = await collection.updateOne({id}, { $set: { isPinned: false } });
+      console.log(`Message with id ${id} pinned:`, messagePinned);
+      if (messagePinned.matchedCount === 0) {
+        console.warn(`Message with id ${id} not found for pinning.`);
+        return 0;
+      }
+      return messagePinned.modifiedCount;
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      throw error;
+    }
+  }
+
 }
 
 export default new MessageRepository();
