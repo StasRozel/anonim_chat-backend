@@ -42,7 +42,7 @@ class MessageRepository {
     try {
       const collection = this.getCollection()
       const messagePinned = await collection.updateOne({id}, { $set: { isPinned: true } });
-      console.log(`Message with id ${id} pinned:`, messagePinned);
+
       if (messagePinned.matchedCount === 0) {
         console.warn(`Message with id ${id} not found for pinning.`);
         return 0;
@@ -58,12 +58,26 @@ class MessageRepository {
     try {
       const collection = this.getCollection()
       const messagePinned = await collection.updateOne({id}, { $set: { isPinned: false } });
-      console.log(`Message with id ${id} pinned:`, messagePinned);
+
       if (messagePinned.matchedCount === 0) {
         console.warn(`Message with id ${id} not found for pinning.`);
         return 0;
       }
       return messagePinned.modifiedCount;
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      throw error;
+    }
+  }
+
+  async deleteMessage(id: string): Promise<number> {
+    try {
+      const collection = this.getCollection()
+      console.log("Deleting message with id:", id);
+      const messagePinned = await collection.deleteOne({id});
+      console.log(`Message with id ${id} delete:`, messagePinned);
+
+      return messagePinned.deletedCount;
     } catch (error) {
       console.error('Error fetching messages:', error);
       throw error;

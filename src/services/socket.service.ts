@@ -80,6 +80,19 @@ export const setupSocketHandlers = (io: Server) => {
       }
     });
 
+    socket.on("delete-message", async (data) => {
+      try {
+        console.log("Message deleted:", data);
+
+        const result = await messageRepository.deleteMessage(data.messageId);
+
+        io.to(data.chatId).emit("delete-message", result);
+      } catch (error) {
+        console.error("Error in delete-message handler:", error);
+        socket.emit("error", { message: "Failed to delete message" });
+      }
+    });
+
     socket.on("disconnect", () => {
       console.log("User disconnected:", socket.id);
     });
