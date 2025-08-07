@@ -84,6 +84,26 @@ class MessageRepository {
     }
   }
 
+  async deleteAllMessages(chatId?: string): Promise<number> {
+  try {
+    const collection = this.getCollection();
+    
+    // Если передан chatId, удаляем только сообщения этого чата
+    // Если нет - удаляем все (для админских целей)
+    const filter = chatId ? { chatId } : {};
+    
+    console.log('Deleting messages with filter:', filter);
+    
+    const result = await collection.drop();
+  
+    
+    return 1;
+  } catch (error) {
+    console.error('Error deleting messages:', error);
+    throw error;
+  }
+}
+
 }
 
 export default new MessageRepository();

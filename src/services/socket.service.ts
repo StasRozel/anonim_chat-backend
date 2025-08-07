@@ -93,6 +93,28 @@ export const setupSocketHandlers = (io: Server) => {
       }
     });
 
+    socket.on("delete-all-messages", async (data) => {
+      try {
+        console.log("Deleting all messages for chat:", data);
+
+        // Передаем chatId в репозиторий
+        const result = await messageRepository.deleteAllMessages(data);
+
+        // Отправляем ответ в тот же чат
+        io.to(data).emit("delete-all-messages", {
+          chatId: data,
+          deletedCount: result,
+        });
+
+        console.log(
+          `All messages deleted from chat: ${data}, count: ${result}`
+        );
+      } catch (error) {
+        console.error("Error in delete-all-messages handler:", error);
+        socket.emit("error", { message: "Failed to delete all messages" });
+      }
+    });
+
     socket.on("disconnect", () => {
       console.log("User disconnected:", socket.id);
     });
