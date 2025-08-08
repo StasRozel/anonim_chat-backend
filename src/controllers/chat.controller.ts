@@ -13,6 +13,16 @@ class ChatController {
     }
   }
 
+  async getMessageById(req: Request, res: Response) {
+    try {
+      const message = await messageRepository.getMessageById(req.params.id);
+      res.json(message);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
   async sendMessage(req: Request, res: Response) {
     const { text, user } = req.body;
 

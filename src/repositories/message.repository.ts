@@ -7,7 +7,7 @@ class MessageRepository {
     return dbConnection.getDb().collection<Message>('messages');
   }
 
-  private async getMessageById(id: string): Promise<Message | null> {
+  public async getMessageById(id: string): Promise<Message | null> {
     return dbConnection.getDb().collection<Message>('messages').findOne({ id });
   }
 
