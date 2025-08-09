@@ -1,15 +1,16 @@
 import { server } from './app';
+import logger from './utils/logger';
 
 const PORT = 3001;
 
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  logger.info(`Server running on port ${PORT}`);
 });
 
 process.once('SIGINT', () => {
-  console.log('SIGINT received: closing HTTP server');
+  logger.info('SIGINT received: closing HTTP server');
   server.close(() => {
-    console.log('HTTP server closed');
+    logger.info('HTTP server closed');
     process.exit(0);
   });
 });

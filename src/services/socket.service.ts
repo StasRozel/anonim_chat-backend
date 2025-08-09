@@ -1,22 +1,25 @@
 import { Message } from "./../types/types";
 import messageRepository from "../repositories/message.repository";
 import { Server } from "socket.io";
+import logger from "../utils/logger";
 
 export const setupSocketHandlers = (io: Server) => {
   io.on("connection", (socket) => {
-    console.log("User connected:", socket.id);
+    logger.info({ socketId: socket.id }, "User connected");
 
     socket.on("join-chat", (data) => {
       if (typeof data === "string") {
         const chatId = data;
         socket.join(chatId);
-        console.log(`User ${socket.id} joined chat: ${chatId}`);
+        logger.info({ socketId: socket.id, chatId }, `User joined chat`);
       } else if (data && data.chatId && data.user) {
         const { chatId, user } = data;
         socket.join(chatId);
-        console.log(
-          `User ${user.first_name} (${socket.id}) joined chat: ${chatId}`
-        );
+        logger.info({ 
+          socketId: socket.id, 
+          chatId, 
+          userName: user.first_name 
+        }, `User ${user.first_name} joined chat`);
 
         socket.to(chatId).emit("user-joined", {
           id: Date.now().toString(),
@@ -26,13 +29,13 @@ export const setupSocketHandlers = (io: Server) => {
           type: "system",
         });
       } else {
-        console.error("Invalid join-chat data format:", data);
+        logger.error({ data }, "Invalid join-chat data format");
       }
     });
 
     socket.on("send-message", async (data) => {
       try {
-        console.log("Message received:", data);
+        logger.debug({ data }, "Message received");
 
         const messageWithServerData = {
           ...data.message,
@@ -44,58 +47,58 @@ export const setupSocketHandlers = (io: Server) => {
 
         io.to(data.chatId).emit("new-message", messageWithServerData);
 
-        console.log(
-          `Message sent to chat ${data.chatId}:`,
-          messageWithServerData.text
-        );
+        logger.info({ 
+          chatId: data.chatId, 
+          messageText: messageWithServerData.text 
+        }, `Message sent to chat`);
       } catch (error) {
-        console.error("Error in send-message handler:", error);
+        logger.error({ error }, "Error in send-message handler");
         socket.emit("error", { message: "Failed to send message" });
       }
     });
 
     socket.on("pin-message", async (data) => {
       try {
-        console.log("Message pinned:", data);
+        logger.info({ data }, "Message pinned");
 
         const result = await messageRepository.pinMessage(data.message.id);
 
         io.to(data.chatId).emit("pin-message", result);
       } catch (error) {
-        console.error("Error in pin-message handler:", error);
+        logger.error({ error }, "Error in pin-message handler");
         socket.emit("error", { message: "Failed to pin message" });
       }
     });
 
     socket.on("unpin-message", async (data) => {
       try {
-        console.log("Message unpinned:", data);
+        logger.info({ data }, "Message unpinned");
 
         const result = await messageRepository.unPinMessage(data.message.id);
 
         io.to(data.chatId).emit("unpin-message", result);
       } catch (error) {
-        console.error("Error in pin-message handler:", error);
+        logger.error({ error }, "Error in pin-message handler");
         socket.emit("error", { message: "Failed to pin message" });
       }
     });
 
     socket.on("delete-message", async (data) => {
       try {
-        console.log("Message deleted:", data);
+        logger.info({ data }, "Message deleted");
 
         const result = await messageRepository.deleteMessage(data.messageId);
 
         io.to(data.chatId).emit("delete-message", result);
       } catch (error) {
-        console.error("Error in delete-message handler:", error);
+        logger.error({ error }, "Error in delete-message handler");
         socket.emit("error", { message: "Failed to delete message" });
       }
     });
 
     socket.on("delete-all-messages", async (data) => {
       try {
-        console.log("Deleting all messages for chat:", data);
+        logger.info({ chatId: data }, "Deleting all messages for chat");
 
         // Передаем chatId в репозиторий
         const result = await messageRepository.deleteAllMessages(data);
@@ -106,17 +109,18 @@ export const setupSocketHandlers = (io: Server) => {
           deletedCount: result,
         });
 
-        console.log(
-          `All messages deleted from chat: ${data}, count: ${result}`
-        );
+        logger.info({ 
+          chatId: data, 
+          deletedCount: result 
+        }, `All messages deleted from chat`);
       } catch (error) {
-        console.error("Error in delete-all-messages handler:", error);
+        logger.error({ error }, "Error in delete-all-messages handler");
         socket.emit("error", { message: "Failed to delete all messages" });
       }
     });
 
     socket.on("disconnect", () => {
-      console.log("User disconnected:", socket.id);
+      logger.info({ socketId: socket.id }, "User disconnected");
     });
   });
 };

@@ -1,4 +1,5 @@
 import { MongoClient, ServerApiVersion, Db } from 'mongodb';
+import logger from '../utils/logger';
 require('dotenv').config();
 
 class DatabaseConnection {
@@ -30,7 +31,7 @@ class DatabaseConnection {
       // Проверяем подключение
       await this.db.admin().ping();
     } catch (error) {
-      console.error('Failed to connect to MongoDB:', error);
+      logger.error({ error }, 'Failed to connect to MongoDB');
       throw error;
     }
   }
@@ -40,7 +41,7 @@ class DatabaseConnection {
       await this.client.close();
       this.client = null;
       this.db = null;
-      console.log('Disconnected from MongoDB');
+      logger.info('Disconnected from MongoDB');
     }
   }
 

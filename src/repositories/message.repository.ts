@@ -1,6 +1,7 @@
 import { Message } from '../types/types';
 import { dbConnection } from '../config/db.config'; // Импортируем клиент MongoDB
 import { Collection } from 'mongodb';
+import logger from '../utils/logger';
 
 class MessageRepository {
   private getCollection(): Collection<Message> {
@@ -17,7 +18,7 @@ class MessageRepository {
       const result = await collection.insertOne(message);
       return { ...message, id: result.insertedId.getTimestamp().toDateString() };
     } catch (error) {
-      console.error('Error creating message:', error);
+      logger.error({ error }, 'Error creating message');
       throw error;
     }
   }
@@ -33,7 +34,7 @@ class MessageRepository {
       
       return messages.reverse();
     } catch (error) {
-      console.error('Error fetching messages:', error);
+      logger.error({ error }, 'Error fetching messages');
       throw error;
     }
   }
@@ -44,12 +45,12 @@ class MessageRepository {
       const messagePinned = await collection.updateOne({id}, { $set: { isPinned: true } });
 
       if (messagePinned.matchedCount === 0) {
-        console.warn(`Message with id ${id} not found for pinning.`);
+        logger.warn(`Message with id ${id} not found for pinning.`);
         return 0;
       }
       return messagePinned.modifiedCount;
     } catch (error) {
-      console.error('Error fetching messages:', error);
+      logger.error({ error }, 'Error fetching messages');
       throw error;
     }
   }
@@ -60,12 +61,12 @@ class MessageRepository {
       const messagePinned = await collection.updateOne({id}, { $set: { isPinned: false } });
 
       if (messagePinned.matchedCount === 0) {
-        console.warn(`Message with id ${id} not found for pinning.`);
+        logger.warn(`Message with id ${id} not found for pinning.`);
         return 0;
       }
       return messagePinned.modifiedCount;
     } catch (error) {
-      console.error('Error fetching messages:', error);
+      logger.error({ error }, 'Error fetching messages');
       throw error;
     }
   }
@@ -73,13 +74,13 @@ class MessageRepository {
   async deleteMessage(id: string): Promise<number> {
     try {
       const collection = this.getCollection()
-      console.log("Deleting message with id:", id);
+      logger.info({ id }, "Deleting message with id");
       const messagePinned = await collection.deleteOne({id});
-      console.log(`Message with id ${id} delete:`, messagePinned);
+      logger.info({ id, result: messagePinned }, `Message with id ${id} delete`);
 
       return messagePinned.deletedCount;
     } catch (error) {
-      console.error('Error fetching messages:', error);
+      logger.error({ error }, 'Error fetching messages');
       throw error;
     }
   }
@@ -92,14 +93,14 @@ class MessageRepository {
     // Если нет - удаляем все (для админских целей)
     const filter = chatId ? { chatId } : {};
     
-    console.log('Deleting messages with filter:', filter);
+    logger.info({ filter }, 'Deleting messages with filter');
     
     const result = await collection.drop();
   
     
     return 1;
   } catch (error) {
-    console.error('Error deleting messages:', error);
+    logger.error({ error }, 'Error deleting messages');
     throw error;
   }
 }

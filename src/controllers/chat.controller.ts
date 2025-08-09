@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { Message } from "../types/types";
 import messageRepository from "../repositories/message.repository";
+import logger from "../utils/logger";
 
 class ChatController {
   async getMessages(req: Request, res: Response) {
@@ -8,7 +9,7 @@ class ChatController {
       const messages = await messageRepository.getMessages();
       res.json(messages);
     } catch (error) {
-      console.error("Error fetching messages:", error);
+      logger.error({ error }, "Error fetching messages");
       res.status(500).json({ error: "Internal server error" });
     }
   }
@@ -18,7 +19,7 @@ class ChatController {
       const message = await messageRepository.getMessageById(req.params.id);
       res.json(message);
     } catch (error) {
-      console.error("Error fetching messages:", error);
+      logger.error({ error }, "Error fetching messages");
       res.status(500).json({ error: "Internal server error" });
     }
   }
@@ -35,7 +36,7 @@ class ChatController {
       isPinned: false,
       replyTo: null
     };
-    console.log("newMessage:", newMessage);
+    logger.info({ newMessage }, "newMessage");
     const createdMessage = await messageRepository.createMessage(newMessage);
     res.json(createdMessage);
   }
