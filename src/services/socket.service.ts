@@ -57,6 +57,24 @@ export const setupSocketHandlers = (io: Server) => {
       }
     });
 
+    socket.on("edit-message", async (data) => {
+      try {
+        logger.debug({ data }, "Message received");
+
+        await messageRepository.editMessage(data.message);
+
+        io.to(data.chatId).emit("edit-message", data.message);
+
+        logger.info({ 
+          chatId: data.chatId, 
+          messageText: data.message.text 
+        }, `Message edit to chat`);
+      } catch (error) {
+        logger.error({ error }, "Error in efit-message handler");
+        socket.emit("error", { message: "Failed to edit message" });
+      }
+    });
+
     socket.on("pin-message", async (data) => {
       try {
         logger.info({ data }, "Message pinned");

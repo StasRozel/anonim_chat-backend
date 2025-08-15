@@ -16,16 +16,17 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use("/api/chat", chatRoutes);
-// app.use(
-//   pinoHttp({
-//     logger,
-//   })
-// );
+
+app.use((req, res, next) => {
+  res.setHeader('X-Frame-Options', 'ALLOW-FROM https://web.telegram.org');
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'self' https://web.telegram.org");
+  next();
+});
 
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: process.env.NODE_ENV === 'production' ? process.env.FRONTEND_URL : "http://localhost:3000",
     methods: ["GET", "POST", "PUT", "DELETE"],
   },
 });
