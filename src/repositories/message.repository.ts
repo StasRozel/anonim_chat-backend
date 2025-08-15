@@ -23,6 +23,18 @@ class MessageRepository {
     }
   }
 
+  async editMessage(message: Omit<Message, '_id'>): Promise<Message> {
+    try {
+      const collection = this.getCollection();
+      logger.info({ message }, "Editing message with id");
+      const result = await collection.updateOne({id: message.id }, { $set: {text : message.text} });
+      return { ...message, id: result.upsertedId?.getTimestamp().toDateString() as string };
+    } catch (error) {
+      logger.error({ error }, 'Error creating message');
+      throw error;
+    }
+  }
+
   async getMessages(limit: number = 50): Promise<Message[]> {
     try {
       const collection = this.getCollection();
@@ -89,14 +101,11 @@ class MessageRepository {
   try {
     const collection = this.getCollection();
     
-    // Если передан chatId, удаляем только сообщения этого чата
-    // Если нет - удаляем все (для админских целей)
     const filter = chatId ? { chatId } : {};
     
     logger.info({ filter }, 'Deleting messages with filter');
     
-    const result = await collection.drop();
-  
+    await collection.drop();
     
     return 1;
   } catch (error) {
