@@ -4,6 +4,7 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import chatRoutes from "./routes/chat";
 import authRoutes from "./routes/auth";
+import userRoutes from "./routes/user";
 import { bot } from "./services/tgbot.service";
 import { dbConnection } from "./config/db.config";
 import { setupSocketHandlers } from "./services/socket.service";
@@ -18,6 +19,7 @@ app.use(cors());
 app.use(express.json());
 app.use("/api/chat", chatRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/user", userRoutes);
 
 app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'ALLOW-FROM https://web.telegram.org');

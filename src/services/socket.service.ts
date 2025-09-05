@@ -1,7 +1,22 @@
-import { Message } from "./../types/types";
 import messageRepository from "../repositories/message.repository";
 import { Server } from "socket.io";
 import logger from "../utils/logger";
+import { userRepository } from "../repositories/user.repository";
+import {
+  adminMiddleware,
+  superAdminMiddleware,
+} from "../middleware/admin.middleware";
+
+const ADMIN_EVENTS = new Set([
+  "ban-user",
+  "unban-user",
+  "delete-all-messages",
+  "delete-message",
+  "pin-message",
+  "unpin-message",
+]);
+
+const SUPER_ADMIN_EVENTS = new Set(["set-admin", "delete-admin"]);
 
 export const setupSocketHandlers = (io: Server) => {
   io.on("connection", (socket) => {
@@ -14,12 +29,27 @@ export const setupSocketHandlers = (io: Server) => {
         logger.info({ socketId: socket.id, chatId }, `User joined chat`);
       } else if (data && data.chatId && data.user) {
         const { chatId, user } = data;
+
+        console.log("Setting user data:", user);
+
+        socket.data = socket.data || {};
+        socket.data.user = user;
+
+        console.log("socket.data after setting:", socket.data);
+
+        // Подключаем middleware ПОСЛЕ установки данных пользователя
+        socket.use(adminMiddleware(ADMIN_EVENTS));
+        socket.use(superAdminMiddleware(SUPER_ADMIN_EVENTS));
+
         socket.join(chatId);
-        logger.info({ 
-          socketId: socket.id, 
-          chatId, 
-          userName: user.first_name 
-        }, `User ${user.first_name} joined chat`);
+        logger.info(
+          {
+            socketId: socket.id,
+            chatId,
+            userName: user.first_name,
+          },
+          `User ${user.first_name} joined chat`
+        );
 
         socket.to(chatId).emit("user-joined", {
           id: Date.now().toString(),
@@ -47,10 +77,13 @@ export const setupSocketHandlers = (io: Server) => {
 
         io.to(data.chatId).emit("new-message", messageWithServerData);
 
-        logger.info({ 
-          chatId: data.chatId, 
-          messageText: messageWithServerData.text 
-        }, `Message sent to chat`);
+        logger.info(
+          {
+            chatId: data.chatId,
+            messageText: messageWithServerData.text,
+          },
+          `Message sent to chat`
+        );
       } catch (error) {
         logger.error({ error }, "Error in send-message handler");
         socket.emit("error", { message: "Failed to send message" });
@@ -65,10 +98,13 @@ export const setupSocketHandlers = (io: Server) => {
 
         io.to(data.chatId).emit("edit-message", data.message);
 
-        logger.info({ 
-          chatId: data.chatId, 
-          messageText: data.message.text 
-        }, `Message edit to chat`);
+        logger.info(
+          {
+            chatId: data.chatId,
+            messageText: data.message.text,
+          },
+          `Message edit to chat`
+        );
       } catch (error) {
         logger.error({ error }, "Error in efit-message handler");
         socket.emit("error", { message: "Failed to edit message" });
@@ -96,8 +132,8 @@ export const setupSocketHandlers = (io: Server) => {
 
         io.to(data.chatId).emit("unpin-message", result);
       } catch (error) {
-        logger.error({ error }, "Error in pin-message handler");
-        socket.emit("error", { message: "Failed to pin message" });
+        logger.error({ error }, "Error in unpin-message handler");
+        socket.emit("error", { message: "Failed to unpin message" });
       }
     });
 
@@ -127,13 +163,68 @@ export const setupSocketHandlers = (io: Server) => {
           deletedCount: result,
         });
 
-        logger.info({ 
-          chatId: data, 
-          deletedCount: result 
-        }, `All messages deleted from chat`);
+        logger.info(
+          {
+            chatId: data,
+            deletedCount: result,
+          },
+          `All messages deleted from chat`
+        );
       } catch (error) {
         logger.error({ error }, "Error in delete-all-messages handler");
         socket.emit("error", { message: "Failed to delete all messages" });
+      }
+    });
+
+    socket.on("ban-user", async (data) => {
+      try {
+        logger.info({ data }, "User banned");
+
+        const result = await userRepository.banUser(data.userId);
+
+        io.to("general-chat").emit("ban-user", result);
+      } catch (error) {
+        logger.error({ error }, "Error in ban-user handler");
+        socket.emit("error", { message: "Failed to ban user" });
+      }
+    });
+
+    socket.on("unban-user", async (data) => {
+      try {
+        logger.info({ data }, "User unbanned");
+
+        const result = await userRepository.unbanUser(data.userId);
+
+        io.to("general-chat").emit("unban-user", result);
+      } catch (error) {
+        logger.error({ error }, "Error in unban-user handler");
+        socket.emit("error", { message: "Failed to unban user" });
+      }
+    });
+
+    socket.on("set-admin", async (data) => {
+      try {
+        logger.info({ data }, "User is admin now");
+
+        const result = await userRepository.setAdmin(data.userId);
+
+        io.to("general-chat").emit("set-admin", result);
+      } catch (error) {
+        logger.error({ error }, "Error in set-admin handler");
+        socket.emit("error", { message: "Failed to set admin" });
+      }
+    });
+
+    socket.on("delete-admin", async (data) => {
+      try {
+        logger.info({ data }, "User isn`t admin now");
+
+        const result = await userRepository.deleteAdmin(data.userId);
+
+        io.to("general-chat").emit("delete-admin", result);
+      } catch (error) {
+        logger.error({ error }, "Error in delete-admin handler");
+        socket.emit("error", { message: "Failed to remove admin" });
       }
     });
 
