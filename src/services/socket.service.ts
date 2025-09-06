@@ -6,6 +6,8 @@ import {
   adminMiddleware,
   superAdminMiddleware,
 } from "../middleware/admin.middleware";
+import { Socket } from "dgram";
+import { TelegramUser } from "@/types/types";
 
 const ADMIN_EVENTS = new Set([
   "ban-user",
@@ -18,7 +20,57 @@ const ADMIN_EVENTS = new Set([
 
 const SUPER_ADMIN_EVENTS = new Set(["set-admin", "delete-admin"]);
 
+// Вспомогательная функция для проверки админских прав
+const checkAdminRights = (socket: any, eventName: string) => {
+  const user = socket.data?.user;
+  const superAdminId = process.env.SUPER_ADMIN_ID ? Number(process.env.SUPER_ADMIN_ID) : undefined;
+  const isAdmin = user?.is_admin;
+  const isSuperAdmin = user?.id === superAdminId;
+  const hasRights = user && (isAdmin || isSuperAdmin);
+
+  console.log(`${eventName} authorization check:`, {
+    user: user ? { id: user.id, is_admin: user.is_admin } : null,
+    superAdminId,
+    hasUser: !!user,
+    isAdmin,
+    isSuperAdmin,
+    hasRights
+  });
+
+  if (!hasRights) {
+    logger.warn({ socketId: socket.id, userId: user?.id }, `Unauthorized ${eventName} attempt`);
+    socket.emit("error", { message: "Forbidden: admin access required" });
+    return false;
+  }
+
+  return true;
+};
+
+// Вспомогательная функция для проверки прав супер-админа
+const checkSuperAdminRights = (socket: any, eventName: string) => {
+  const user = socket.data?.user;
+  const superAdminId = process.env.SUPER_ADMIN_ID ? Number(process.env.SUPER_ADMIN_ID) : undefined;
+  const isSuperAdmin = user?.id === superAdminId;
+
+  console.log(`${eventName} authorization check:`, {
+    user: user ? { id: user.id, is_admin: user.is_admin } : null,
+    superAdminId,
+    hasUser: !!user,
+    isSuperAdmin
+  });
+
+  if (!isSuperAdmin) {
+    logger.warn({ socketId: socket.id, userId: user?.id }, `Unauthorized ${eventName} attempt`);
+    socket.emit("error", { message: "Forbidden: super admin access required" });
+    return false;
+  }
+
+  return true;
+};
+
 export const setupSocketHandlers = (io: Server) => {
+  // Apply admin middleware globally for relevant events
+
   io.on("connection", (socket) => {
     logger.info({ socketId: socket.id }, "User connected");
 
@@ -36,10 +88,7 @@ export const setupSocketHandlers = (io: Server) => {
         socket.data.user = user;
 
         console.log("socket.data after setting:", socket.data);
-
-        // Подключаем middleware ПОСЛЕ установки данных пользователя
-        socket.use(adminMiddleware(ADMIN_EVENTS));
-        socket.use(superAdminMiddleware(SUPER_ADMIN_EVENTS));
+        console.log("socket.data.user verification:", socket.data.user);
 
         socket.join(chatId);
         logger.info(
@@ -113,6 +162,10 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("pin-message", async (data) => {
       try {
+        if (!checkAdminRights(socket, "pin-message")) {
+          return;
+        }
+
         logger.info({ data }, "Message pinned");
 
         const result = await messageRepository.pinMessage(data.message.id);
@@ -126,6 +179,10 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("unpin-message", async (data) => {
       try {
+        if (!checkAdminRights(socket, "unpin-message")) {
+          return;
+        }
+
         logger.info({ data }, "Message unpinned");
 
         const result = await messageRepository.unPinMessage(data.message.id);
@@ -139,6 +196,10 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("delete-message", async (data) => {
       try {
+        if (!checkAdminRights(socket, "delete-message")) {
+          return;
+        }
+
         logger.info({ data }, "Message deleted");
 
         const result = await messageRepository.deleteMessage(data.messageId);
@@ -152,6 +213,10 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("delete-all-messages", async (data) => {
       try {
+        if (!checkAdminRights(socket, "delete-all-messages")) {
+          return;
+        }
+
         logger.info({ chatId: data }, "Deleting all messages for chat");
 
         // Передаем chatId в репозиторий
@@ -178,10 +243,12 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("ban-user", async (data) => {
       try {
+        if (!checkAdminRights(socket, "ban-user")) {
+          return;
+        }
+
         logger.info({ data }, "User banned");
-
         const result = await userRepository.banUser(data.userId);
-
         io.to("general-chat").emit("ban-user", result);
       } catch (error) {
         logger.error({ error }, "Error in ban-user handler");
@@ -191,10 +258,12 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("unban-user", async (data) => {
       try {
+        if (!checkAdminRights(socket, "unban-user")) {
+          return;
+        }
+
         logger.info({ data }, "User unbanned");
-
         const result = await userRepository.unbanUser(data.userId);
-
         io.to("general-chat").emit("unban-user", result);
       } catch (error) {
         logger.error({ error }, "Error in unban-user handler");
@@ -204,10 +273,12 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("set-admin", async (data) => {
       try {
+        if (!checkSuperAdminRights(socket, "set-admin")) {
+          return;
+        }
+
         logger.info({ data }, "User is admin now");
-
         const result = await userRepository.setAdmin(data.userId);
-
         io.to("general-chat").emit("set-admin", result);
       } catch (error) {
         logger.error({ error }, "Error in set-admin handler");
@@ -217,10 +288,12 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("delete-admin", async (data) => {
       try {
+        if (!checkSuperAdminRights(socket, "delete-admin")) {
+          return;
+        }
+
         logger.info({ data }, "User isn`t admin now");
-
         const result = await userRepository.deleteAdmin(data.userId);
-
         io.to("general-chat").emit("delete-admin", result);
       } catch (error) {
         logger.error({ error }, "Error in delete-admin handler");

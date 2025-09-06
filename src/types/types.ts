@@ -4,6 +4,9 @@ export interface TelegramUser {
   last_name?: string;
   username?: string;
   photo_url?: string;
+  is_admin: boolean;
+  is_banned: boolean;
+  chat_nickname?: string;
 }
 
 export interface Message {

@@ -12,6 +12,8 @@ export function adminMiddleware(adminEvents: Set<string>) {
       
       console.log("Admin middleware check:", {
         eventName,
+        socketId: this.id,
+        socketData: this.data,
         user: user ? { id: user.id, is_admin: user.is_admin } : null,
         superAdminId,
         allowed
