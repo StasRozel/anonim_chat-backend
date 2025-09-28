@@ -8,7 +8,6 @@ export interface TelegramUser {
   is_banned: boolean;
   chat_nickname?: string;
 }
-
 export interface Message {
   id: string;
   text: string;
@@ -20,6 +19,20 @@ export interface Message {
   editedAt?: Date;
   isPinned: boolean;
   replyTo: string | null;
+  // attachments removed
+}
+
+interface FileDocument {
+  _id: string;
+  originalName: string;
+  filename: string;
+  mimetype: string;
+  size: number;
+  url: string;
+  thumbnailUrl?: string;
+  uploadedBy: string; // ID пользователя
+  uploadedAt: Date;
+  chatId: string;
 }
 
 export interface CreateMessageDto {

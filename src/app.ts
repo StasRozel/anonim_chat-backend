@@ -9,6 +9,7 @@ import { bot } from "./services/tgbot.service";
 import { dbConnection } from "./config/db.config";
 import { setupSocketHandlers } from "./services/socket.service";
 import logger from "./utils/logger";
+import filesRoutes from "./routes/upload.routes";
 import pinoHttp from "pino-http";
 
 require("dotenv").config();
@@ -20,6 +21,10 @@ app.use(express.json());
 app.use("/api/chat", chatRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/files", filesRoutes);
+
+// Статические файлы
+app.use('/uploads', express.static('uploads'));
 
 app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'ALLOW-FROM https://web.telegram.org');

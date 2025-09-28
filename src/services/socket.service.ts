@@ -23,7 +23,9 @@ const SUPER_ADMIN_EVENTS = new Set(["set-admin", "delete-admin"]);
 // Вспомогательная функция для проверки админских прав
 const checkAdminRights = (socket: any, eventName: string) => {
   const user = socket.data?.user;
-  const superAdminId = process.env.SUPER_ADMIN_ID ? Number(process.env.SUPER_ADMIN_ID) : undefined;
+  const superAdminId = process.env.SUPER_ADMIN_ID
+    ? Number(process.env.SUPER_ADMIN_ID)
+    : undefined;
   const isAdmin = user?.is_admin;
   const isSuperAdmin = user?.id === superAdminId;
   const hasRights = user && (isAdmin || isSuperAdmin);
@@ -34,11 +36,14 @@ const checkAdminRights = (socket: any, eventName: string) => {
     hasUser: !!user,
     isAdmin,
     isSuperAdmin,
-    hasRights
+    hasRights,
   });
 
   if (!hasRights) {
-    logger.warn({ socketId: socket.id, userId: user?.id }, `Unauthorized ${eventName} attempt`);
+    logger.warn(
+      { socketId: socket.id, userId: user?.id },
+      `Unauthorized ${eventName} attempt`
+    );
     socket.emit("error", { message: "Forbidden: admin access required" });
     return false;
   }
@@ -49,18 +54,23 @@ const checkAdminRights = (socket: any, eventName: string) => {
 // Вспомогательная функция для проверки прав супер-админа
 const checkSuperAdminRights = (socket: any, eventName: string) => {
   const user = socket.data?.user;
-  const superAdminId = process.env.SUPER_ADMIN_ID ? Number(process.env.SUPER_ADMIN_ID) : undefined;
+  const superAdminId = process.env.SUPER_ADMIN_ID
+    ? Number(process.env.SUPER_ADMIN_ID)
+    : undefined;
   const isSuperAdmin = user?.id === superAdminId;
 
   console.log(`${eventName} authorization check:`, {
     user: user ? { id: user.id, is_admin: user.is_admin } : null,
     superAdminId,
     hasUser: !!user,
-    isSuperAdmin
+    isSuperAdmin,
   });
 
   if (!isSuperAdmin) {
-    logger.warn({ socketId: socket.id, userId: user?.id }, `Unauthorized ${eventName} attempt`);
+    logger.warn(
+      { socketId: socket.id, userId: user?.id },
+      `Unauthorized ${eventName} attempt`
+    );
     socket.emit("error", { message: "Forbidden: super admin access required" });
     return false;
   }
@@ -114,28 +124,21 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("send-message", async (data) => {
       try {
-        logger.debug({ data }, "Message received");
+        const { chatId, message } = data;
 
-        const messageWithServerData = {
-          ...data.message,
-          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        const messageWithFiles = {
+          ...message,
+          id: `msg_${Date.now()}_${Math.random()}`,
           timestamp: new Date().toISOString(),
         };
 
-        await messageRepository.createMessage(messageWithServerData);
+        // Сохраняем в БД
+        await messageRepository.createMessage(messageWithFiles);
 
-        io.to(data.chatId).emit("new-message", messageWithServerData);
-
-        logger.info(
-          {
-            chatId: data.chatId,
-            messageText: messageWithServerData.text,
-          },
-          `Message sent to chat`
-        );
-      } catch (error) {
-        logger.error({ error }, "Error in send-message handler");
-        socket.emit("error", { message: "Failed to send message" });
+        // Отправляем всем в чат
+        io.to(chatId).emit("new-message", messageWithFiles);
+      } catch (error: any) {
+        logger.error("Error sending message:", error);
       }
     });
 
