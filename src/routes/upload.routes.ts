@@ -9,8 +9,33 @@ import { getFolderByType } from '../utils/getFolderByType';
 
 const router = express.Router();
 
+// Функция для создания необходимых папок
+const ensureUploadDirectories = async () => {
+  const uploadDir = path.join(process.cwd(), 'uploads');
+  const subDirs = ['images', 'documents', 'videos', 'temp', 'thumbnails'];
+  
+  try {
+    // Создаем основную папку uploads
+    await fs.mkdir(uploadDir, { recursive: true });
+    
+    // Создаем подпапки
+    for (const subDir of subDirs) {
+      const dirPath = path.join(uploadDir, subDir);
+      await fs.mkdir(dirPath, { recursive: true });
+    }
+    
+    console.log('Upload directories ensured');
+  } catch (error) {
+    console.error('Error creating upload directories:', error);
+    throw error;
+  }
+};
+
 router.post('/upload', upload.array('files', 5), async (req, res) => {
   try {
+    // Убеждаемся, что все необходимые папки существуют
+    await ensureUploadDirectories();
+    
     const files = req.files as Express.Multer.File[];
     const processedFiles = [];
 
@@ -19,6 +44,7 @@ router.post('/upload', upload.array('files', 5), async (req, res) => {
         success: false,
         error: 'Нет загруженных файлов'
       });
+      return;
     }
 
     for (const file of files) {
@@ -28,6 +54,7 @@ router.post('/upload', upload.array('files', 5), async (req, res) => {
           success: false,
           error: validation.error
         });
+        return;
       }
 
       let thumbnailUrl = null;
@@ -71,6 +98,9 @@ router.post('/upload', upload.array('files', 5), async (req, res) => {
 
 router.get('/download/:filename', async (req, res) => {
   try {
+    // Убеждаемся, что все необходимые папки существуют
+    await ensureUploadDirectories();
+    
     const { filename } = req.params;
     
     const possibleFolders = ['images', 'documents', 'videos', 'temp'];
@@ -96,7 +126,7 @@ router.get('/download/:filename', async (req, res) => {
         filePath = rootPath;
       } catch (error) {
         res.status(404).json({ error: 'Файл не найден' });
-        return
+        return;
       }
     }
 

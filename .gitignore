@@ -6,4 +6,24 @@ dist
 
 logs
 
-uploads
+# Ignore uploaded files but keep folder structure
+files/documents/*
+files/images/*
+files/temp/*
+files/thumbnails/*
+files/*.zip
+files/*.pdf
+files/*.docx
+files/*.jpg
+files/*.jpeg
+files/*.png
+files/*.gif
+files/*.mp4
+files/*.avi
+files/*.mov
+
+# Keep the upload directories themselves
+!files/documents/
+!files/images/
+!files/temp/
+!files/thumbnails/

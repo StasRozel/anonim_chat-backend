@@ -2,79 +2,107 @@ import messageRepository from "../repositories/message.repository";
 import { Server } from "socket.io";
 import logger from "../utils/logger";
 import { userRepository } from "../repositories/user.repository";
-import {
-  adminMiddleware,
-  superAdminMiddleware,
-} from "../middleware/admin.middleware";
-import { Socket } from "dgram";
-import { TelegramUser } from "@/types/types";
 
 const ADMIN_EVENTS = new Set([
   "ban-user",
   "unban-user",
   "delete-all-messages",
-  "delete-message",
   "pin-message",
   "unpin-message",
 ]);
 
 const SUPER_ADMIN_EVENTS = new Set(["set-admin", "delete-admin"]);
 
-// Вспомогательная функция для проверки админских прав
-const checkAdminRights = (socket: any, eventName: string) => {
+// События, которые заблокированы для забаненных пользователей
+const USER_RESTRICTED_EVENTS = new Set([
+  "send-message",
+  "edit-message",
+  "pin-message",
+  "unpin-message",
+]);
+
+// Проверка статуса бана пользователя
+const checkUserBanStatus = (socket: any, eventName: string) => {
   const user = socket.data?.user;
-  const superAdminId = process.env.SUPER_ADMIN_ID
-    ? Number(process.env.SUPER_ADMIN_ID)
-    : undefined;
-  const isAdmin = user?.is_admin;
-  const isSuperAdmin = user?.id === superAdminId;
-  const hasRights = user && (isAdmin || isSuperAdmin);
+  
+  // Если событие не требует проверки бана, разрешаем
+  if (!USER_RESTRICTED_EVENTS.has(eventName)) {
+    return true;
+  }
 
-  console.log(`${eventName} authorization check:`, {
-    user: user ? { id: user.id, is_admin: user.is_admin } : null,
-    superAdminId,
-    hasUser: !!user,
-    isAdmin,
-    isSuperAdmin,
-    hasRights,
-  });
-
-  if (!hasRights) {
+  // Если пользователя нет, блокируем
+  if (!user) {
     logger.warn(
-      { socketId: socket.id, userId: user?.id },
-      `Unauthorized ${eventName} attempt`
+      { socketId: socket.id },
+      `Unauthorized ${eventName} attempt - no user data`
     );
-    socket.emit("error", { message: "Forbidden: admin access required" });
+    socket.emit("error", { message: "Forbidden: user authentication required" });
+    return false;
+  }
+
+  // Проверяем статус бана
+  if (user.is_banned) {
+    logger.warn(
+      { socketId: socket.id, userId: user.id },
+      `Banned user attempted ${eventName}`
+    );
+    socket.emit("error", { message: "Forbidden: user is banned" });
     return false;
   }
 
   return true;
 };
 
-// Вспомогательная функция для проверки прав супер-админа
-const checkSuperAdminRights = (socket: any, eventName: string) => {
+// Универсальная функция для проверки прав доступа
+const checkEventPermissions = (socket: any, eventName: string) => {
+  // Сначала проверяем статус бана
+  if (!checkUserBanStatus(socket, eventName)) {
+    return false;
+  }
+
   const user = socket.data?.user;
   const superAdminId = process.env.SUPER_ADMIN_ID
     ? Number(process.env.SUPER_ADMIN_ID)
     : undefined;
+  const isAdmin = user?.is_admin;
   const isSuperAdmin = user?.id === superAdminId;
 
   console.log(`${eventName} authorization check:`, {
-    user: user ? { id: user.id, is_admin: user.is_admin } : null,
+    user: user ? { id: user.id, is_admin: user.is_admin, is_banned: user.is_banned } : null,
     superAdminId,
     hasUser: !!user,
+    isAdmin,
     isSuperAdmin,
   });
 
-  if (!isSuperAdmin) {
-    logger.warn(
-      { socketId: socket.id, userId: user?.id },
-      `Unauthorized ${eventName} attempt`
-    );
-    socket.emit("error", { message: "Forbidden: super admin access required" });
-    return false;
+  // Проверяем права для событий супер-админа
+  if (SUPER_ADMIN_EVENTS.has(eventName)) {
+    if (!isSuperAdmin) {
+      logger.warn(
+        { socketId: socket.id, userId: user?.id },
+        `Unauthorized ${eventName} attempt - super admin required`
+      );
+      socket.emit("error", { message: "Forbidden: super admin access required" });
+      return false;
+    }
+    return true;
   }
 
+  // Проверяем права для обычных админских событий
+  if (ADMIN_EVENTS.has(eventName)) {
+    const hasAdminRights = user && (isAdmin || isSuperAdmin);
+    if (!hasAdminRights) {
+      logger.warn(
+        { socketId: socket.id, userId: user?.id },
+        `Unauthorized ${eventName} attempt - admin rights required`
+      );
+      socket.emit("error", { message: "Forbidden: admin access required" });
+      return false;
+    }
+    return true;
+  }
+
+  // Для событий, не требующих админских прав
   return true;
 };
 
@@ -124,6 +152,10 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("send-message", async (data) => {
       try {
+        if (!checkEventPermissions(socket, "send-message")) {
+          return;
+        }
+
         const { chatId, message } = data;
 
         const messageWithFiles = {
@@ -144,6 +176,10 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("edit-message", async (data) => {
       try {
+        if (!checkEventPermissions(socket, "edit-message")) {
+          return;
+        }
+
         logger.debug({ data }, "Message received");
 
         await messageRepository.editMessage(data.message);
@@ -165,7 +201,7 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("pin-message", async (data) => {
       try {
-        if (!checkAdminRights(socket, "pin-message")) {
+        if (!checkEventPermissions(socket, "pin-message")) {
           return;
         }
 
@@ -182,7 +218,7 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("unpin-message", async (data) => {
       try {
-        if (!checkAdminRights(socket, "unpin-message")) {
+        if (!checkEventPermissions(socket, "unpin-message")) {
           return;
         }
 
@@ -199,7 +235,7 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("delete-message", async (data) => {
       try {
-        if (!checkAdminRights(socket, "delete-message")) {
+        if (!checkEventPermissions(socket, "delete-message")) {
           return;
         }
 
@@ -216,7 +252,7 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("delete-all-messages", async (data) => {
       try {
-        if (!checkAdminRights(socket, "delete-all-messages")) {
+        if (!checkEventPermissions(socket, "delete-all-messages")) {
           return;
         }
 
@@ -246,7 +282,7 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("ban-user", async (data) => {
       try {
-        if (!checkAdminRights(socket, "ban-user")) {
+        if (!checkEventPermissions(socket, "ban-user")) {
           return;
         }
 
@@ -261,7 +297,7 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("unban-user", async (data) => {
       try {
-        if (!checkAdminRights(socket, "unban-user")) {
+        if (!checkEventPermissions(socket, "unban-user")) {
           return;
         }
 
@@ -276,7 +312,7 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("set-admin", async (data) => {
       try {
-        if (!checkSuperAdminRights(socket, "set-admin")) {
+        if (!checkEventPermissions(socket, "set-admin")) {
           return;
         }
 
@@ -291,7 +327,7 @@ export const setupSocketHandlers = (io: Server) => {
 
     socket.on("delete-admin", async (data) => {
       try {
-        if (!checkSuperAdminRights(socket, "delete-admin")) {
+        if (!checkEventPermissions(socket, "delete-admin")) {
           return;
         }
 

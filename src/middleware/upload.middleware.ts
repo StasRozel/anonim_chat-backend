@@ -2,6 +2,7 @@
 import multer from 'multer';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import fs from 'fs';
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -10,7 +11,16 @@ const storage = multer.diskStorage({
     if (file.mimetype.startsWith('image/')) folder = 'images';
     if (file.mimetype.startsWith('video/')) folder = 'videos';
     
-    cb(null, `uploads/${folder}/`);
+    const uploadPath = `uploads/${folder}/`;
+    
+    // Создаем папку, если она не существует
+    fs.mkdirSync(uploadPath, { recursive: true });
+    
+    // Также создаем папку thumbnails для миниатюр
+    const thumbnailsPath = 'uploads/thumbnails/';
+    fs.mkdirSync(thumbnailsPath, { recursive: true });
+    
+    cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
     // Генерируем уникальное имя: uuid + расширение
