@@ -102,7 +102,6 @@ const checkEventPermissions = (socket: any, eventName: string) => {
     return true;
   }
 
-  // Для событий, не требующих админских прав
   return true;
 };
 
@@ -120,13 +119,10 @@ export const setupSocketHandlers = (io: Server) => {
       } else if (data && data.chatId && data.user) {
         const { chatId, user } = data;
 
-        console.log("Setting user data:", user);
+        console.log("User data:", user);
 
         socket.data = socket.data || {};
         socket.data.user = user;
-
-        console.log("socket.data after setting:", socket.data);
-        console.log("socket.data.user verification:", socket.data.user);
 
         socket.join(chatId);
         logger.info(
