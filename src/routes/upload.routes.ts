@@ -70,7 +70,7 @@ router.post('/upload', upload.array('files', 5), async (req, res) => {
 
       const fileInfo = {
         id: path.basename(file.filename, path.extname(file.filename)),
-        originalName: file.originalname,
+        originalName: Buffer.from(file.originalname, 'latin1').toString('utf8'),
         filename: file.filename,
         url: `/uploads/${getFolderByType(file.mimetype)}/${file.filename}`,
         thumbnailUrl: thumbnailUrl ? `/uploads/thumbnails/${path.basename(thumbnailUrl)}` : null,
